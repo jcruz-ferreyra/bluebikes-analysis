@@ -1,0 +1,11 @@
+# tasks/download_stations_data/config.yaml
+
+# GBFS version
+version: "2.3"  # Only 1.1 currently supported
+
+# What to download
+download_metadata: false   # Station information + regions (download occasionally)
+download_status: true     # Current station status (download regularly)
+
+# Storage location
+output_storage: "local"  # "local" or "drive"

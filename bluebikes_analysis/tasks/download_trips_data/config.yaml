@@ -1,0 +1,12 @@
+# tasks/download_data/config.yaml
+
+# S3 bucket configuration
+main_url: "https://s3.amazonaws.com/hubway-data/"
+system_name: "bluebikes"  # or "hubway" for older files
+
+# Date range (YYYYMM format)
+start_date: "201805"
+end_date: "202601"
+
+# Storage location
+output_storage: "local"  # "local" or "drive"

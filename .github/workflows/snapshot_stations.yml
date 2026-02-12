@@ -1,0 +1,46 @@
+name: Snapshot Station Status
+
+on:
+  schedule:
+    # Times in UTC (Boston is UTC-5 in winter, UTC-4 in summer/DST)
+    # Midnight Boston = 5am UTC (winter) / 4am UTC (summer)
+    - cron: '0 5 * * *'   # Midnight ET (winter)
+    # 6am Boston = 11am UTC (winter) / 10am UTC (summer)
+    - cron: '0 11 * * *'  # 6am ET (winter)
+    # 9am Boston = 2pm UTC (winter) / 1pm UTC (summer)
+    - cron: '0 14 * * *'  # 9am ET (winter)
+    # 5pm Boston = 10pm UTC (winter) / 9pm UTC (summer)
+    - cron: '0 22 * * *'  # 5pm ET (winter)
+    # 9pm Boston = 2am UTC next day (winter) / 1am UTC next day (summer)
+    - cron: '0 2 * * *'   # 9pm ET (winter)
+  workflow_dispatch:  # Allows manual trigger from GitHub UI
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install requests python-dateutil pytz pyyaml
+    
+    - name: Run snapshot
+      env:
+        CI: true
+      run: |
+        python -m bluebikes_analysis.tasks.download_stations_data
+    
+    - name: Commit and push results
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add data/raw/stations/station_status_*.csv
+        git commit -m "Auto snapshot $(date -u +%Y-%m-%dT%H:%M:%SZ)" || echo "No changes"
+        git push
