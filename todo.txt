@@ -1,0 +1,1 @@
+In OR repository: Generate the distance matrix. How? We need to find the shortest (time) path between each pair of stations. Use osmnx. Set max speed based on observed speed at any morning using google maps.
