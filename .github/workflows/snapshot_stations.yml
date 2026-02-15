@@ -3,20 +3,24 @@ name: Snapshot Station Status
 on:
   schedule:
     # Times in UTC (Boston is UTC-5 in winter, UTC-4 in summer/DST)
-    # Midnight Boston = 5am UTC (winter) / 4am UTC (summer)
-    - cron: '0 5 * * *'   # Midnight ET (winter)
-    # 6am Boston = 11am UTC (winter) / 10am UTC (summer)
-    - cron: '0 11 * * *'  # 6am ET (winter)
-    # 7am Boston = 11am UTC (winter) / 10am UTC (summer)
-    - cron: '0 12 * * *'  # 6am ET (winter)
-    # 8am Boston = 11am UTC (winter) / 10am UTC (summer)
-    - cron: '0 13 * * *'  # 6am ET (winter)
-    # 9am Boston = 2pm UTC (winter) / 1pm UTC (summer)
-    - cron: '0 14 * * *'  # 9am ET (winter)
-    # 5pm Boston = 10pm UTC (winter) / 9pm UTC (summer)
-    - cron: '0 22 * * *'  # 5pm ET (winter)
-    # 9pm Boston = 2am UTC next day (winter) / 1am UTC next day (summer)
-    - cron: '0 2 * * *'   # 9pm ET (winter)
+    # Midnight Boston = 5am UTC (winter)
+    - cron: '0 5 * * *'    # 00:00 ET
+    # 11:30pm Boston = 4:30am UTC (winter) 
+    - cron: '30 4 * * *'   # 23:30 ET
+    
+    # Morning rush: every 30 minutes from 6am-9am
+    # 6:00am Boston = 11:00am UTC (winter)
+    - cron: '0 11 * * *'   # 06:00 ET
+    - cron: '30 11 * * *'  # 06:30 ET
+    # 7:00am-7:30am
+    - cron: '0 12 * * *'   # 07:00 ET
+    - cron: '30 12 * * *'  # 07:30 ET
+    # 8:00am-8:30am
+    - cron: '0 13 * * *'   # 08:00 ET
+    - cron: '30 13 * * *'  # 08:30 ET
+    # 9:00am
+    - cron: '0 14 * * *'   # 09:00 ET
+    
   workflow_dispatch:  # Allows manual trigger from GitHub UI
 
 jobs:

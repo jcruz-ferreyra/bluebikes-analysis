@@ -157,6 +157,7 @@ def _parse_station_status(json_data: dict) -> list[dict]:
     # Fields compatible with v2.3 (excluding vehicle_types_available)
     filtered_fields = [
         "station_id",
+        "legacy_id",
         "is_installed",
         "is_renting",
         "is_returning",
@@ -177,7 +178,7 @@ def _parse_station_status(json_data: dict) -> list[dict]:
         # Add computed field: num_regular_bikes_available
         num_bikes = filtered_station.get("num_bikes_available", 0) or 0
         num_ebikes = filtered_station.get("num_ebikes_available", 0) or 0
-        filtered_station["num_conventional_available"] = num_bikes - num_ebikes
+        filtered_station["num_classic_available"] = num_bikes - num_ebikes
 
         filtered_stations.append(filtered_station)
 
