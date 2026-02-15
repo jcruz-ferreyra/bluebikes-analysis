@@ -66,7 +66,7 @@ def _parse_station_information(json_data: dict) -> list[dict]:
     stations = json_data.get("data", {}).get("stations", [])
 
     # Fields compatible with v2.3 (excluding rental_uris)
-    filtered_fields = ["station_id", "name", "short_name", "lat", "lon", "capacity", "region_id"]
+    filtered_fields = ["station_id", "legacy_id", "name", "short_name", "lat", "lon", "capacity", "region_id"]
 
     filtered_stations = []
     for station in stations:
@@ -157,7 +157,6 @@ def _parse_station_status(json_data: dict) -> list[dict]:
     # Fields compatible with v2.3 (excluding vehicle_types_available)
     filtered_fields = [
         "station_id",
-        "legacy_id",
         "is_installed",
         "is_renting",
         "is_returning",

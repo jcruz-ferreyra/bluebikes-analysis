@@ -4,8 +4,8 @@
 version: "1.1"  # Only 1.1 currently supported
 
 # What to download
-download_metadata: true   # Station information + regions (download occasionally)
-download_status: false     # Current station status (download regularly)
+download_metadata: false   # Station information + regions (download occasionally)
+download_status: true     # Current station status (download regularly)
 
 # Storage location
 output_storage: "local"  # "local" or "drive"
