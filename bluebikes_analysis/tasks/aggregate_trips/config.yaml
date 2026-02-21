@@ -1,0 +1,10 @@
+# tasks/aggregate_trips/config.yaml
+
+# Station filtering
+stations_of_interest_file: "stations_of_interest.json"  # Required: JSON file with list of station short_name IDs
+
+# Time range for hourly aggregates
+hourly_start_date: "2023-04-01"  # Must be 2023-04-01 or later (new station ID system)
+
+# Storage location
+output_storage: "local"  # "local" or "drive"
