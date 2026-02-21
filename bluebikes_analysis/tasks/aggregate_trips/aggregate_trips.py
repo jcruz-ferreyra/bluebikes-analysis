@@ -357,6 +357,19 @@ def _generate_daily_aggregates(all_trips: pd.DataFrame, ctx: AggregateTripsConte
     daily_aggregates = (
         daily_trips.groupby("date").size().sort_index().reset_index(name="trip_count")
     )
+    
+    # Ensure all dates are present (fill missing with 0)
+    min_date = daily_aggregates["date"].min()
+    max_date = daily_aggregates["date"].max()
+    full_date_range = pd.date_range(start=min_date, end=max_date, freq='D').date
+    
+    # Create complete date range DataFrame
+    complete_dates = pd.DataFrame({'date': full_date_range})
+    
+    # Merge and fill missing with 0
+    daily_aggregates = complete_dates.merge(daily_aggregates, on='date', how='left')
+    daily_aggregates['trip_count'] = daily_aggregates['trip_count'].fillna(0).astype(int)
+    
     # Save to CSV
     output_path = ctx.processed_dir / "daily_aggregates.csv"
     daily_aggregates.to_csv(output_path, index=False)
