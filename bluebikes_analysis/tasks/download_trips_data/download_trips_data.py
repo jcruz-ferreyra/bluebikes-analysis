@@ -8,7 +8,7 @@ import requests
 from tqdm import tqdm
 import zipfile
 
-from .types import DownloadDataContext
+from .types import DownloadTripsDataContext
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +18,12 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 
-def _generate_date_range(ctx: DownloadDataContext) -> list[str]:
+def _generate_date_range(ctx: DownloadTripsDataContext) -> list[str]:
     """
     Generate list of YYYYMM strings from start_date to end_date (inclusive).
 
     Args:
-        ctx: DownloadDataContext with start_date and end_date
+        ctx: DownloadTripsDataContext with start_date and end_date
 
     Returns:
         List of date strings in YYYYMM format
@@ -44,12 +44,12 @@ def _generate_date_range(ctx: DownloadDataContext) -> list[str]:
     return date_list
 
 
-def _construct_file_url(ctx: DownloadDataContext, date_str: str) -> tuple[str, str]:
+def _construct_file_url(ctx: DownloadTripsDataContext, date_str: str) -> tuple[str, str]:
     """
     Construct URL for trip data file, trying standard pattern first then .csv.zip fallback.
 
     Args:
-        ctx: DownloadDataContext with main_url and system_name
+        ctx: DownloadTripsDataContext with main_url and system_name
         date_str: Date string in YYYYMM format
 
     Returns:
@@ -148,12 +148,12 @@ def _extract_zip(zip_path: Path, destination_dir: Path) -> bool:
         return False
 
 
-def _download_and_extract_trip_file(ctx: DownloadDataContext, date_str: str) -> str:
+def _download_and_extract_trip_file(ctx: DownloadTripsDataContext, date_str: str) -> str:
     """
     Download trip data file for a specific date, extract it, and clean up.
 
     Args:
-        ctx: DownloadDataContext with configuration
+        ctx: DownloadTripsDataContext with configuration
         date_str: Date string in YYYYMM format
 
     Returns:
@@ -199,12 +199,12 @@ def _download_and_extract_trip_file(ctx: DownloadDataContext, date_str: str) -> 
 # ============================================================================
 
 
-def download_trips_data(ctx: DownloadDataContext) -> None:
+def download_trips_data(ctx: DownloadTripsDataContext) -> None:
     """
     Download all Bluebikes trip data files in the specified date range.
 
     Args:
-        ctx: DownloadDataContext containing configuration and output paths
+        ctx: DownloadTripsDataContext containing configuration and output paths
     """
     logger.info("Starting Bluebikes trip data download")
     logger.info(f"Output directory: {ctx.raw_trips_dir}")

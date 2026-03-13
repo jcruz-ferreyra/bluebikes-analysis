@@ -41,7 +41,7 @@ class GenerateTimeseriesContext:
     @property
     def timeseries_dir(self) -> Path:
         """Path to processed timeseries output."""
-        path = self.output_data_dir / "processed" / "timeseries"
+        path = self.output_data_dir / "processed" / "trips"
         path.mkdir(parents=True, exist_ok=True)
         return path
 

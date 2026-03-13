@@ -6,7 +6,7 @@ system_name: "bluebikes"  # or "hubway" for older files
 
 # Date range (YYYYMM format)
 start_date: "201805"
-end_date: "202601"
+end_date: "202602"
 
 # Storage location
 output_storage: "local"  # "local" or "drive"

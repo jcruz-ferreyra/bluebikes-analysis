@@ -67,3 +67,6 @@ else:
     DRIVE_DIR = None
     DRIVE_DATA_DIR = None
     DRIVE_MODELS_DIR = None
+
+# API KEYS
+NCEI_APIKEY = os.getenv("NCEI_APIKEY")
