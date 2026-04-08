@@ -1,0 +1,16 @@
+# tasks/evaluate_prophet/config.yaml
+
+# Cross-validation splits
+test_split_start_dates:  # List of YYYY-MM-DD dates for test period starts
+  - "2025-04-01"  # Spring
+  - "2025-07-01"  # Summer
+  - "2025-10-01"  # Fall
+  - "2026-01-01"  # Winter
+
+test_split_days: 60  # Number of days in each test period (including start date)
+
+# Retraining schedule
+retrain_every_days: 7  # Retrain every N days during test period (0 = train once, no retraining)
+
+# Storage location
+output_storage: "local"  # "local" or "drive"

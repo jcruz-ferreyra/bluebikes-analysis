@@ -34,6 +34,7 @@ def plot_daily_longterm(
     legend_labels=None,
     figsize=(12, 6),
     ylim_max=None,
+    show=True,
 ):
     """
     Plot daily/long-term time series profile.
@@ -108,7 +109,9 @@ def plot_daily_longterm(
     ax.yaxis.set_major_locator(plt.MaxNLocator(nbins=6))
 
     plt.tight_layout()
-    plt.show()
+
+    if show:
+        plt.show()
 
 
 def plot_daily_longterm_split(
