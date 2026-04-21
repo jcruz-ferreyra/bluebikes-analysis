@@ -1,11 +1,14 @@
 # tasks/get_weather_data/get_weather_data.py
 
-import logging
 from datetime import date, timedelta
-import requests
+import logging
+import time
+
 import pandas as pd
+import requests
 
 from bluebikes_analysis.config import NCEI_APIKEY
+
 from .types import GetWeatherDataContext
 
 logger = logging.getLogger(__name__)
@@ -20,10 +23,10 @@ BASE_URL = "https://www.ncei.noaa.gov/cdo-web/api/v2"
 
 
 def _fetch_year_range(
-    dataset: str, station: str, datatypes: list[str], start: date, end: date
+    dataset: str, station: str, datatypes: list[str], start: date, end: date, max_retries: int = 3
 ) -> list[dict]:
     """
-    Fetch all records between two dates, paginating as needed.
+    Fetch all records between two dates, paginating as needed with retry logic.
 
     Args:
         dataset: NCEI dataset ID
@@ -31,6 +34,7 @@ def _fetch_year_range(
         datatypes: List of datatype codes
         start: Start date
         end: End date
+        max_retries: Maximum retry attempts for 503 errors
 
     Returns:
         List of weather records
@@ -53,23 +57,36 @@ def _fetch_year_range(
     while True:
         params["offset"] = offset
 
-        try:
-            response = requests.get(f"{BASE_URL}/data", headers=headers, params=params)
-            response.raise_for_status()
-            batch = response.json().get("results", [])
+        # Retry logic for 503 errors
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(f"{BASE_URL}/data", headers=headers, params=params)
+                response.raise_for_status()
+                break  # Success, exit retry loop
+            except requests.exceptions.HTTPError as e:
+                if e.response.status_code == 503 and attempt < max_retries - 1:
+                    wait_time = 2**attempt  # Exponential backoff: 1s, 2s, 4s
+                    logger.warning(
+                        f"  503 error at offset {offset}, retrying in {wait_time}s (attempt {attempt+1}/{max_retries})..."
+                    )
+                    time.sleep(wait_time)
+                else:
+                    logger.error(f"HTTP error fetching data: {e}")
+                    raise
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Request error: {e}")
+                raise
 
-            if not batch:
-                break
+        batch = response.json().get("results", [])
 
-            records.extend(batch)
-            offset += 1000
+        if not batch:
+            break
 
-        except requests.exceptions.HTTPError as e:
-            logger.error(f"HTTP error fetching data: {e}")
-            raise
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Request error: {e}")
-            raise
+        records.extend(batch)
+        offset += 1000
+
+        # Small delay to avoid rate limiting
+        time.sleep(0.2)
 
     return records
 

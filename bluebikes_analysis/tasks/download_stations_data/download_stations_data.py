@@ -275,7 +275,7 @@ def _download_status(ctx: DownloadStationsDataContext) -> None:
     # 3. Save to station_status_{timestamp}.csv
     import pytz
     timestamp = datetime.now(pytz.utc).strftime("%y%m%d_%H%M%S")
-    output_path = ctx.stations_dir / f"station_status_{timestamp}.csv"
+    output_path = ctx.stations_dir / "status" / f"station_status_{timestamp}.csv"
     _save_status_to_csv(status_list, output_path)
 
     logger.info("=" * 60)

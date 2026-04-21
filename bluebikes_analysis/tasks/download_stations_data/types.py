@@ -55,7 +55,8 @@ class DownloadStationsDataContext:
     def stations_dir(self) -> Path:
         """Path to stations data directory."""
         path = self.output_data_dir / "raw" / "stations"
-        path.mkdir(parents=True, exist_ok=True)
+        status_path = path / "status"
+        status_path.mkdir(parents=True, exist_ok=True)
         return path
 
 
