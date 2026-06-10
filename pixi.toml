@@ -35,6 +35,9 @@ jupyterlab = "*"
 black = "*"
 flake8 = "*"
 isort = "*"
+pymc = ">=5.28.5,<6"
+nutpie = ">=0.16.8,<0.17"
+arviz = ">=0.23.4,<0.24"
 
 [environments]
 dev = ["dev"]
