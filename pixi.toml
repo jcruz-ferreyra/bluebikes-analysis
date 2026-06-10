@@ -1,0 +1,47 @@
+[workspace]
+channels = ["conda-forge"]
+platforms = ["win-64"]
+
+[dependencies]
+python = "3.11.*"
+pip = "*"
+python-dotenv = "*"
+pandas = "*"
+numpy = "*"
+matplotlib = "*"
+seaborn = "*"
+python-dateutil = "*"
+requests = "*"
+tqdm = "*"
+pyyaml = "*"
+pytz = "*"
+geopandas = "*"
+folium = "*"
+statsmodels = "*"
+scikit-learn = "*"
+contextily = "*"
+prophet = "*"
+ipywidgets = "*"
+plotly = "*"
+xgboost = "*"
+holidays = "*"
+
+[pypi-dependencies]
+bluebikes_analysis = { path = ".", editable = true }
+
+[feature.dev.dependencies]
+ipykernel = "*"
+jupyterlab = "*"
+black = "*"
+flake8 = "*"
+isort = "*"
+
+[environments]
+dev = ["dev"]
+
+[tasks]
+lab = "jupyter lab"
+kernel = "python -m ipykernel install --user --name bluebikes_analysis --display-name bluebikes_analysis"
+format = "black . && isort ."
+lint = "flake8 ."
+get-weather-data = "python -m bluebikes_analysis.tasks.get_weather_data"
