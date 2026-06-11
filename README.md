@@ -71,7 +71,7 @@ A multi-stage pipeline that ingests Boston BlueBikes open data, cleans years of 
 
 ## Quick Start
 
-Run the tasks in the order below; each builds on the previous stage's outputs (forecasting follows evaluation — the backtest validates the model settings the production forecasts then use). `get_weather_data` stands alone: its output is consumed by the exploratory notebooks, not by the pipeline.
+Run the tasks in the order below; each builds on the previous stage's outputs. The two Prophet tasks are independent of each other: `evaluate_prophet` works on past data, cross-validating the models for performance reporting, while `forecast_prophet` forecasts future demand and generates the inputs for the subsequent rebalancing-optimization work. `get_weather_data` stands alone: its output is consumed by the exploratory notebooks, not by the pipeline.
 
 ```mermaid
 flowchart LR
@@ -79,7 +79,7 @@ flowchart LR
     B[download_stations_data] --> D
     D --> E[generate_timeseries]
     E --> F[evaluate_prophet]
-    F --> G[forecast_prophet]
+    E --> G[forecast_prophet]
     C[get_weather_data]
 ```
 
@@ -229,7 +229,7 @@ YAML file defining the morning rush-hour window:
 
 ```yaml
 morning_start_hour: 5    # inclusive
-morning_end_hour: 10     # inclusive (so 05:00–10:59)
+morning_end_hour: 11     # exclusive (so 05:00–10:59)
 
 output_storage: "local"  # "local" or "drive"
 ```
@@ -248,7 +248,7 @@ pixi run python -m bluebikes_forecasting.tasks.generate_timeseries
 
 ### Task 6: [evaluate_prophet](bluebikes_forecasting/tasks/evaluate_prophet)
 
-Backtests Prophet per station across seasonal cross-validation splits.
+Backtests Prophet per station across seasonal cross-validation splits — performance reporting on past data.
 
 **Configuration**:
 
@@ -285,7 +285,7 @@ pixi run python -m bluebikes_forecasting.tasks.evaluate_prophet
 
 ### Task 7: [forecast_prophet](bluebikes_forecasting/tasks/forecast_prophet)
 
-Trains Prophet — with the settings validated by `evaluate_prophet` — and generates forward forecasts (with 80% bounds) for every station.
+Trains Prophet and generates forward forecasts (with 80% bounds) for every station — the inputs for the subsequent rebalancing-optimization work.
 
 **Configuration**:
 
@@ -613,12 +613,12 @@ Turns the aggregates into clean, gap-filled series, including the per-station mo
 3. Build Per-Station Hourly Series
    - Sum across `member` / `ebike` categories per station; reindex to a complete hourly range, filling gaps with 0
 4. Morning Demand
-   - Filter to `morning_start_hour`..`morning_end_hour`; sum per day into `morning_pickups` / `morning_dropoffs`; reindex to all dates (gaps → 0)
+   - Filter to hours ≥ `morning_start_hour` and < `morning_end_hour` (end exclusive); sum per day into `morning_pickups` / `morning_dropoffs`; reindex to all dates (gaps → 0)
 5. Save
    - Write one `<station_id>_morning_demand.csv` per station
 
 **Key Features**:
-- **Configurable morning window**: Default 05:00–10:59
+- **Configurable morning window**: Start inclusive, end exclusive; default 5 → 11, i.e. 05:00–10:59
 - **Complete series**: Gap-filled hourly and daily series, friendly to forecasting models
 
 **Technical Details**:
