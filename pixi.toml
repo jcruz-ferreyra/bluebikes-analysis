@@ -2,6 +2,11 @@
 channels = ["conda-forge"]
 platforms = ["win-64"]
 
+[activation.env]
+# Keep the user-level site-packages (%APPDATA%/Roaming/Python) from shadowing
+# the pixi environments (stale typing_extensions broke pydantic_core).
+PYTHONNOUSERSITE = "1"
+
 [dependencies]
 python = "3.11.*"
 pip = "*"
@@ -25,6 +30,7 @@ ipywidgets = "*"
 plotly = "*"
 xgboost = "*"
 holidays = "*"
+pydantic = ">=2.13.4,<3"
 
 [pypi-dependencies]
 bluebikes_forecasting = { path = ".", editable = true }
