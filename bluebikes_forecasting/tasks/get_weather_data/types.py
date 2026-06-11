@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 Datatype = Literal["TMAX", "TMIN", "PRCP", "SNOW", "SNWD", "AWND"]
 
@@ -45,12 +45,6 @@ class GetWeatherDataContext(BaseModel):
                 f"end_date must be in YYYY-MM-DD format or 'yesterday', got '{value}'"
             )
         return value
-
-    @model_validator(mode="after")
-    def _prepare_dirs(self) -> "GetWeatherDataContext":
-        # Validate output directory (same side effect as the old __post_init__)
-        self.output_data_dir.mkdir(parents=True, exist_ok=True)
-        return self
 
     @property
     def weather_dir(self) -> Path:

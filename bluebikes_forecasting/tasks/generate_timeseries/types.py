@@ -17,17 +17,13 @@ class GenerateTimeseriesContext(BaseModel):
     output_storage: Literal["local", "drive"] = "local"
 
     @model_validator(mode="after")
-    def _check_window_and_prepare_dirs(self) -> "GenerateTimeseriesContext":
+    def _check_window(self) -> "GenerateTimeseriesContext":
         # Morning window must be non-empty (start inclusive, end exclusive)
         if self.morning_start_hour >= self.morning_end_hour:
             raise ValueError(
                 f"morning_start_hour ({self.morning_start_hour}) must be less than "
                 f"morning_end_hour ({self.morning_end_hour})"
             )
-
-        # Validate output directory (same side effect as the old __post_init__)
-        self.output_data_dir.mkdir(parents=True, exist_ok=True)
-
         return self
 
     @property

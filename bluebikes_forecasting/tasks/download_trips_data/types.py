@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class DownloadTripsDataContext(BaseModel):
@@ -23,12 +23,6 @@ class DownloadTripsDataContext(BaseModel):
     def _ensure_trailing_slash(cls, value: str) -> str:
         # Downstream URL building concatenates filenames directly
         return value if value.endswith("/") else value + "/"
-
-    @model_validator(mode="after")
-    def _prepare_dirs(self) -> "DownloadTripsDataContext":
-        # Validate output directory (same side effect as the old __post_init__)
-        self.output_data_dir.mkdir(parents=True, exist_ok=True)
-        return self
 
     @property
     def raw_trips_dir(self) -> Path:

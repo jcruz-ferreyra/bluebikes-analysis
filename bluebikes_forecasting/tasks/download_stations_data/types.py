@@ -38,17 +38,13 @@ class DownloadStationsDataContext(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def _check_downloads_and_prepare_dirs(self) -> "DownloadStationsDataContext":
+    def _check_downloads(self) -> "DownloadStationsDataContext":
         # At least one download option must be enabled
         if not self.download_metadata and not self.download_status:
             raise ValueError(
                 "At least one download option must be enabled.\n"
                 "Set 'download_metadata: true' or 'download_status: true' in config.yaml"
             )
-
-        # Validate output directory (same side effect as the old __post_init__)
-        self.output_data_dir.mkdir(parents=True, exist_ok=True)
-
         return self
 
     @property

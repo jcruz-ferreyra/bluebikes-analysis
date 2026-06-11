@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class EvaluateProphetContext(BaseModel):
@@ -30,12 +30,6 @@ class EvaluateProphetContext(BaseModel):
                     f"All test_split_start_dates must be in YYYY-MM-DD format, got '{date_str}'"
                 )
         return value
-
-    @model_validator(mode="after")
-    def _prepare_dirs(self) -> "EvaluateProphetContext":
-        # Validate output directory (same side effect as the old __post_init__)
-        self.output_data_dir.mkdir(parents=True, exist_ok=True)
-        return self
 
     @property
     def timeseries_dir(self) -> Path:

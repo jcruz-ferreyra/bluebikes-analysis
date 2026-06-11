@@ -34,10 +34,7 @@ class AggregateTripsContext(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def _check_inputs_and_prepare_dirs(self) -> "AggregateTripsContext":
-        # Validate output directory (same side effect as the old __post_init__)
-        self.output_data_dir.mkdir(parents=True, exist_ok=True)
-
+    def _check_inputs(self) -> "AggregateTripsContext":
         # Stations of interest file must exist before any loading starts
         if not self.stations_of_interest_path.exists():
             raise ValueError(

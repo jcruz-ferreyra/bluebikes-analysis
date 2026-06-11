@@ -45,7 +45,7 @@ class ForecastProphetContext(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def _check_window_and_prepare_dirs(self) -> "ForecastProphetContext":
+    def _check_window(self) -> "ForecastProphetContext":
         # A concrete end date must come after the start date
         if self.inference_end_date != "end_of_data":
             start_date = datetime.strptime(self.inference_start_date, "%Y-%m-%d")
@@ -55,10 +55,6 @@ class ForecastProphetContext(BaseModel):
                     f"inference_end_date must be after inference_start_date, "
                     f"got '{self.inference_end_date}' <= '{self.inference_start_date}'"
                 )
-
-        # Validate output directory (same side effect as the old __post_init__)
-        self.output_data_dir.mkdir(parents=True, exist_ok=True)
-
         return self
 
     @property
