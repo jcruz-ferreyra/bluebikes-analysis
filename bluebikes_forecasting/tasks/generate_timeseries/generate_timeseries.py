@@ -117,7 +117,7 @@ def _generate_morning_demand(
         Dictionary mapping station_id to morning demand DataFrame
     """
     logger.info(
-        f"Generating morning demand timeseries ({ctx.morning_start_hour}:00-{ctx.morning_end_hour}:59)"
+        f"Generating morning demand timeseries ({ctx.morning_start_hour}:00-{ctx.morning_end_hour}:00, end exclusive)"
     )
 
     # Get full date range
@@ -128,8 +128,9 @@ def _generate_morning_demand(
     morning_demand_dict = {}
 
     for station_id, df in station_df_dict.items():
-        # Filter to morning hours
-        filt = df["timestamp"].dt.hour.between(ctx.morning_start_hour, ctx.morning_end_hour)
+        # Filter to morning hours (start inclusive, end exclusive)
+        hours = df["timestamp"].dt.hour
+        filt = (hours >= ctx.morning_start_hour) & (hours < ctx.morning_end_hour)
         df_morning = df.loc[filt, :].copy()
 
         # Extract date and aggregate

@@ -8,8 +8,8 @@ from pathlib import Path
 class GenerateTimeseriesContext:
     """Context for generating time series from aggregated trip data."""
 
-    morning_start_hour: int
-    morning_end_hour: int
+    morning_start_hour: int  # inclusive
+    morning_end_hour: int  # exclusive (e.g. 11 means up to 10:59)
     output_data_dir: Path
     output_storage: str = "local"  # "local" or "drive"
 
@@ -80,8 +80,8 @@ def _validate_morning_hours(start_hour: int, end_hour: int) -> None:
     Validate morning hour range is valid.
 
     Args:
-        start_hour: Start hour (0-23)
-        end_hour: End hour (0-23)
+        start_hour: Start hour, inclusive (0-23)
+        end_hour: End hour, exclusive (1-24, e.g. 11 means up to 10:59)
 
     Raises:
         ValueError: If hours are invalid
@@ -89,8 +89,8 @@ def _validate_morning_hours(start_hour: int, end_hour: int) -> None:
     if not (0 <= start_hour <= 23):
         raise ValueError(f"morning_start_hour must be 0-23, got {start_hour}")
 
-    if not (0 <= end_hour <= 23):
-        raise ValueError(f"morning_end_hour must be 0-23, got {end_hour}")
+    if not (1 <= end_hour <= 24):
+        raise ValueError(f"morning_end_hour must be 1-24 (exclusive end), got {end_hour}")
 
     if start_hour >= end_hour:
         raise ValueError(

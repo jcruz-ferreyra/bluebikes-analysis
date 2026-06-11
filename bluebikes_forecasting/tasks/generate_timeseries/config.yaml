@@ -2,7 +2,7 @@
 
 # Morning rush hour definition
 morning_start_hour: 5   # Start of morning period (inclusive)
-morning_end_hour: 10    # End of morning period (inclusive, so 5-10:59)
+morning_end_hour: 11    # End of morning period (exclusive, so 5:00-10:59)
 
 # Storage location
 output_storage: "local"  # "local" or "drive"

@@ -45,7 +45,7 @@ elif OUTPUT_STORAGE == "local":
 else:
     raise ValueError(f"Invalid output_storage: '{OUTPUT_STORAGE}'. Use 'local' or 'drive'.")
 
-logger.info(f"Morning hours: {MORNING_START_HOUR}:00 - {MORNING_END_HOUR}:59")
+logger.info(f"Morning hours: {MORNING_START_HOUR}:00 - {MORNING_END_HOUR}:00 (end exclusive)")
 
 # Create context
 context = GenerateTimeseriesContext(
