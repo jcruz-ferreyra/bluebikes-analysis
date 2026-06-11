@@ -1,7 +1,7 @@
 # tasks/forecast_prophet/config.yaml
 
 # Inference configuration
-inference_start_date: "2026-03-01"  # YYYY-MM-DD - start generating forecasts from this date
+inference_start_date: "2026-05-01"  # YYYY-MM-DD - start generating forecasts from this date
 inference_end_date: "end_of_data"   # YYYY-MM-DD or "end_of_data" - forecast up to this date
 
 # Retraining schedule
