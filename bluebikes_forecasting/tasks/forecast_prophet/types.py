@@ -1,35 +1,65 @@
 # tasks/forecast_prophet/types.py
 
-from dataclasses import dataclass
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-@dataclass
-class ForecastProphetContext:
+class ForecastProphetContext(BaseModel):
     """Context for Prophet demand forecasting."""
 
+    model_config = ConfigDict(extra="forbid")
+
     inference_start_date: str  # YYYY-MM-DD format
-    inference_end_date: str  # YYYY-MM-DD format or "end_of_data"
-    retrain_every_days: int
-    save_models: bool
+    inference_end_date: str = "end_of_data"  # YYYY-MM-DD format or "end_of_data"
+    retrain_every_days: int = Field(default=0, ge=0)  # 0 = train once, no retraining
+    save_models: bool = False
     output_data_dir: Path
-    output_storage: str = "local"  # "local" or "drive"
+    output_storage: Literal["local", "drive"] = "local"
     output_models_dir: Path | None = None
 
-    def __post_init__(self):
-        # Validate output directory
+    @field_validator("inference_start_date")
+    @classmethod
+    def _check_start_date(cls, value: str) -> str:
+        # Must be a real calendar date
+        try:
+            datetime.strptime(value, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError(f"inference_start_date must be in YYYY-MM-DD format, got '{value}'")
+        return value
+
+    @field_validator("inference_end_date")
+    @classmethod
+    def _check_end_date(cls, value: str) -> str:
+        # "end_of_data" resolves at run time; anything else must be a real date
+        if value == "end_of_data":
+            return value
+        try:
+            datetime.strptime(value, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError(
+                f"inference_end_date must be in YYYY-MM-DD format or 'end_of_data', got '{value}'"
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _check_window_and_prepare_dirs(self) -> "ForecastProphetContext":
+        # A concrete end date must come after the start date
+        if self.inference_end_date != "end_of_data":
+            start_date = datetime.strptime(self.inference_start_date, "%Y-%m-%d")
+            end_date = datetime.strptime(self.inference_end_date, "%Y-%m-%d")
+            if end_date <= start_date:
+                raise ValueError(
+                    f"inference_end_date must be after inference_start_date, "
+                    f"got '{self.inference_end_date}' <= '{self.inference_start_date}'"
+                )
+
+        # Validate output directory (same side effect as the old __post_init__)
         self.output_data_dir.mkdir(parents=True, exist_ok=True)
 
-        # Validate storage option
-        _validate_storage(self.output_storage)
-
-        # Validate inference dates
-        _validate_inference_date(self.inference_start_date)
-        _validate_inference_end_date(self.inference_end_date, self.inference_start_date)
-
-        # Validate retrain frequency
-        _validate_retrain_days(self.retrain_every_days)
+        return self
 
     @property
     def timeseries_dir(self) -> Path:
@@ -57,76 +87,3 @@ class ForecastProphetContext:
         if self.save_models:
             path.mkdir(parents=True, exist_ok=True)
         return path
-
-
-def _validate_storage(storage: str) -> None:
-    """
-    Validate that the storage option is supported.
-
-    Args:
-        storage: Storage option ("local" or "drive")
-
-    Raises:
-        ValueError: If storage option is not valid
-    """
-    valid_storages = ["local", "drive"]
-    if storage not in valid_storages:
-        raise ValueError(f"output_storage must be one of {valid_storages}, got '{storage}'")
-
-
-def _validate_inference_date(date_str: str) -> None:
-    """
-    Validate inference start date format.
-
-    Args:
-        date_str: Date string in YYYY-MM-DD format
-
-    Raises:
-        ValueError: If date format is invalid
-    """
-    try:
-        datetime.strptime(date_str, "%Y-%m-%d")
-    except ValueError:
-        raise ValueError(f"inference_start_date must be in YYYY-MM-DD format, got '{date_str}'")
-
-
-def _validate_inference_end_date(date_str: str, start_date_str: str) -> None:
-    """
-    Validate inference end date format and that it is after the start date.
-
-    Args:
-        date_str: Date string in YYYY-MM-DD format or "end_of_data"
-        start_date_str: Start date string in YYYY-MM-DD format
-
-    Raises:
-        ValueError: If date format is invalid or end date is not after start date
-    """
-    if date_str == "end_of_data":
-        return
-
-    try:
-        end_date = datetime.strptime(date_str, "%Y-%m-%d")
-    except ValueError:
-        raise ValueError(
-            f"inference_end_date must be in YYYY-MM-DD format or 'end_of_data', got '{date_str}'"
-        )
-
-    start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
-    if end_date <= start_date:
-        raise ValueError(
-            f"inference_end_date must be after inference_start_date, got '{date_str}' <= '{start_date_str}'"
-        )
-
-
-def _validate_retrain_days(days: int) -> None:
-    """
-    Validate retrain frequency.
-
-    Args:
-        days: Number of days between retraining (0 = no retraining)
-
-    Raises:
-        ValueError: If days is negative
-    """
-    if days < 0:
-        raise ValueError(f"retrain_every_days must be >= 0, got {days}")

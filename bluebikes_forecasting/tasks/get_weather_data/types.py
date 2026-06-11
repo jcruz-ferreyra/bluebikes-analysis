@@ -1,34 +1,56 @@
 # tasks/get_weather_data/types.py
 
-from dataclasses import dataclass
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+Datatype = Literal["TMAX", "TMIN", "PRCP", "SNOW", "SNWD", "AWND"]
 
 
-@dataclass
-class GetWeatherDataContext:
+class GetWeatherDataContext(BaseModel):
     """Context for fetching NCEI weather data."""
+
+    model_config = ConfigDict(extra="forbid")
 
     dataset: str
     station: str
-    datatypes: list[str]
-    start_date: str
-    end_date: str
+    datatypes: list[Datatype] = Field(min_length=1)
+    start_date: str  # YYYY-MM-DD format
+    end_date: str  # YYYY-MM-DD format or "yesterday"
     output_data_dir: Path
-    output_storage: str = "local"  # "local" or "drive"
+    output_storage: Literal["local", "drive"] = "local"
 
-    def __post_init__(self):
-        # Validate output directory
+    @field_validator("start_date")
+    @classmethod
+    def _check_start_date(cls, value: str) -> str:
+        # Must be a real calendar date
+        try:
+            datetime.strptime(value, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError(f"start_date must be in YYYY-MM-DD format, got '{value}'")
+        return value
+
+    @field_validator("end_date")
+    @classmethod
+    def _check_end_date(cls, value: str) -> str:
+        # "yesterday" resolves at fetch time; anything else must be a real date
+        if value == "yesterday":
+            return value
+        try:
+            datetime.strptime(value, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError(
+                f"end_date must be in YYYY-MM-DD format or 'yesterday', got '{value}'"
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _prepare_dirs(self) -> "GetWeatherDataContext":
+        # Validate output directory (same side effect as the old __post_init__)
         self.output_data_dir.mkdir(parents=True, exist_ok=True)
-
-        # Validate storage option
-        _validate_storage(self.output_storage)
-
-        # Validate dates
-        _validate_dates(self.start_date, self.end_date)
-
-        # Validate datatypes
-        _validate_datatypes(self.datatypes)
+        return self
 
     @property
     def weather_dir(self) -> Path:
@@ -41,64 +63,3 @@ class GetWeatherDataContext:
     def output_path(self) -> Path:
         """Path to output weather CSV."""
         return self.weather_dir / "daily_weather.csv"
-
-
-def _validate_storage(storage: str) -> None:
-    """
-    Validate that the storage option is supported.
-
-    Args:
-        storage: Storage option ("local" or "drive")
-
-    Raises:
-        ValueError: If storage option is not valid
-    """
-    valid_storages = ["local", "drive"]
-    if storage not in valid_storages:
-        raise ValueError(f"output_storage must be one of {valid_storages}, got '{storage}'")
-
-
-def _validate_dates(start_date: str, end_date: str) -> None:
-    """
-    Validate date format and range.
-
-    Args:
-        start_date: Start date string (YYYY-MM-DD)
-        end_date: End date string (YYYY-MM-DD or "yesterday")
-
-    Raises:
-        ValueError: If dates are invalid
-    """
-    # Validate start_date format
-    try:
-        datetime.strptime(start_date, "%Y-%m-%d")
-    except ValueError:
-        raise ValueError(f"start_date must be in YYYY-MM-DD format, got '{start_date}'")
-
-    # Validate end_date format (allow "yesterday")
-    if end_date != "yesterday":
-        try:
-            datetime.strptime(end_date, "%Y-%m-%d")
-        except ValueError:
-            raise ValueError(
-                f"end_date must be in YYYY-MM-DD format or 'yesterday', got '{end_date}'"
-            )
-
-
-def _validate_datatypes(datatypes: list[str]) -> None:
-    """
-    Validate that datatypes list is not empty.
-
-    Args:
-        datatypes: List of NCEI datatype codes
-
-    Raises:
-        ValueError: If datatypes is empty
-    """
-    if not datatypes:
-        raise ValueError("datatypes list cannot be empty")
-
-    valid_datatypes = ["TMAX", "TMIN", "PRCP", "SNOW", "SNWD", "AWND"]
-    for dt in datatypes:
-        if dt not in valid_datatypes:
-            raise ValueError(f"Unknown datatype '{dt}'. Valid options: {valid_datatypes}")

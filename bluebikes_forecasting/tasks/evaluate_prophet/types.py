@@ -1,35 +1,41 @@
 # tasks/evaluate_prophet/types.py
 
-from dataclasses import dataclass
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-@dataclass
-class EvaluateProphetContext:
+class EvaluateProphetContext(BaseModel):
     """Context for Prophet model evaluation via cross-validation."""
 
-    test_split_start_dates: list[str]  # List of YYYY-MM-DD format dates
-    test_split_days: int
-    retrain_every_days: int
+    model_config = ConfigDict(extra="forbid")
+
+    test_split_start_dates: list[str] = Field(min_length=1)  # YYYY-MM-DD format dates
+    test_split_days: int = Field(gt=0)
+    retrain_every_days: int = Field(default=0, ge=0)  # 0 = train once, no retraining
     output_data_dir: Path
-    output_storage: str = "local"  # "local" or "drive"
+    output_storage: Literal["local", "drive"] = "local"
 
-    def __post_init__(self):
-        # Validate output directory
+    @field_validator("test_split_start_dates")
+    @classmethod
+    def _check_split_dates(cls, value: list[str]) -> list[str]:
+        # Every split start must be a real calendar date
+        for date_str in value:
+            try:
+                datetime.strptime(date_str, "%Y-%m-%d")
+            except ValueError:
+                raise ValueError(
+                    f"All test_split_start_dates must be in YYYY-MM-DD format, got '{date_str}'"
+                )
+        return value
+
+    @model_validator(mode="after")
+    def _prepare_dirs(self) -> "EvaluateProphetContext":
+        # Validate output directory (same side effect as the old __post_init__)
         self.output_data_dir.mkdir(parents=True, exist_ok=True)
-
-        # Validate storage option
-        _validate_storage(self.output_storage)
-
-        # Validate test split dates
-        _validate_test_split_dates(self.test_split_start_dates)
-
-        # Validate test split days
-        _validate_test_split_days(self.test_split_days)
-
-        # Validate retrain frequency
-        _validate_retrain_days(self.retrain_every_days)
+        return self
 
     @property
     def timeseries_dir(self) -> Path:
@@ -47,68 +53,3 @@ class EvaluateProphetContext:
         path = self.output_data_dir / "timeseries_results" / "evaluation" / "prophet"
         path.mkdir(parents=True, exist_ok=True)
         return path
-
-
-def _validate_storage(storage: str) -> None:
-    """
-    Validate that the storage option is supported.
-
-    Args:
-        storage: Storage option ("local" or "drive")
-
-    Raises:
-        ValueError: If storage option is not valid
-    """
-    valid_storages = ["local", "drive"]
-    if storage not in valid_storages:
-        raise ValueError(f"output_storage must be one of {valid_storages}, got '{storage}'")
-
-
-def _validate_test_split_dates(dates: list[str]) -> None:
-    """
-    Validate test split start dates format.
-
-    Args:
-        dates: List of date strings in YYYY-MM-DD format
-
-    Raises:
-        ValueError: If any date format is invalid or list is empty
-    """
-    if not dates:
-        raise ValueError("test_split_start_dates cannot be empty")
-
-    for date_str in dates:
-        try:
-            datetime.strptime(date_str, "%Y-%m-%d")
-        except ValueError:
-            raise ValueError(
-                f"All test_split_start_dates must be in YYYY-MM-DD format, " f"got '{date_str}'"
-            )
-
-
-def _validate_test_split_days(days: int) -> None:
-    """
-    Validate test split duration.
-
-    Args:
-        days: Number of days in test period
-
-    Raises:
-        ValueError: If days is not positive
-    """
-    if days <= 0:
-        raise ValueError(f"test_split_days must be positive, got {days}")
-
-
-def _validate_retrain_days(days: int) -> None:
-    """
-    Validate retrain frequency.
-
-    Args:
-        days: Number of days between retraining (0 = no retraining)
-
-    Raises:
-        ValueError: If days is negative
-    """
-    if days < 0:
-        raise ValueError(f"retrain_every_days must be >= 0, got {days}")

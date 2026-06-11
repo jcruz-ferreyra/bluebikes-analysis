@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from bluebikes_forecasting.config import LOCAL_DATA_DIR, DRIVE_DATA_DIR
-from bluebikes_forecasting.utils import check_missing_keys, load_config, setup_logging
+from bluebikes_forecasting.utils import load_config, setup_logging
 
 # Setup logging
 script_name = Path(__file__).parent.name
@@ -24,41 +24,24 @@ CONFIG_PATH = Path(__file__).parent.resolve() / "config.yaml"
 logger.info(f"Loading config from: {CONFIG_PATH}")
 script_config = load_config(CONFIG_PATH)
 
-# Validate config
-required_keys = ["test_split_start_dates", "test_split_days"]
-check_missing_keys(required_keys, script_config)
-
-# Parse config
-TEST_SPLIT_START_DATES = script_config["test_split_start_dates"]
-TEST_SPLIT_DAYS = script_config["test_split_days"]
-RETRAIN_EVERY_DAYS = script_config.get("retrain_every_days", 0)
-OUTPUT_STORAGE = script_config.get("output_storage", "local")
-
-# Determine output directory
-if OUTPUT_STORAGE == "drive":
+# Resolve the storage-dependent output directory; output_storage itself is
+# validated by the context model, not here
+output_storage = script_config.get("output_storage", "local")
+if output_storage == "drive":
     if DRIVE_DATA_DIR is None:
         raise ValueError("DRIVE_DATA_DIR not configured. Check .env file or use 'local' storage.")
-    OUTPUT_DATA_DIR = DRIVE_DATA_DIR
-    logger.info(f"Using Drive storage: {OUTPUT_DATA_DIR}")
-elif OUTPUT_STORAGE == "local":
-    OUTPUT_DATA_DIR = LOCAL_DATA_DIR
-    logger.info(f"Using local storage: {OUTPUT_DATA_DIR}")
+    output_data_dir = DRIVE_DATA_DIR
 else:
-    raise ValueError(f"Invalid output_storage: '{OUTPUT_STORAGE}'. Use 'local' or 'drive'.")
+    output_data_dir = LOCAL_DATA_DIR
 
-logger.info(f"Test splits: {len(TEST_SPLIT_START_DATES)} periods")
-for i, date in enumerate(TEST_SPLIT_START_DATES, 1):
-    logger.info(f"  Split {i}: {date} ({TEST_SPLIT_DAYS} days)")
-logger.info(f"Retrain every: {RETRAIN_EVERY_DAYS} days")
+# Create and validate context (the YAML dict feeds the model directly)
+context = EvaluateProphetContext(**script_config, output_data_dir=output_data_dir)
 
-# Create context
-context = EvaluateProphetContext(
-    test_split_start_dates=TEST_SPLIT_START_DATES,
-    test_split_days=TEST_SPLIT_DAYS,
-    retrain_every_days=RETRAIN_EVERY_DAYS,
-    output_data_dir=OUTPUT_DATA_DIR,
-    output_storage=OUTPUT_STORAGE,
-)
+logger.info(f"Using {context.output_storage} storage: {context.output_data_dir}")
+logger.info(f"Test splits: {len(context.test_split_start_dates)} periods")
+for i, date in enumerate(context.test_split_start_dates, 1):
+    logger.info(f"  Split {i}: {date} ({context.test_split_days} days)")
+logger.info(f"Retrain every: {context.retrain_every_days} days")
 
 # Call main function
 evaluate_prophet(context)

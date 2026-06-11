@@ -8,7 +8,7 @@ from bluebikes_forecasting.config import (
     LOCAL_MODELS_DIR,
     DRIVE_MODELS_DIR,
 )
-from bluebikes_forecasting.utils import check_missing_keys, load_config, setup_logging
+from bluebikes_forecasting.utils import load_config, setup_logging
 
 # Setup logging
 script_name = Path(__file__).parent.name
@@ -29,46 +29,29 @@ CONFIG_PATH = Path(__file__).parent.resolve() / "config.yaml"
 logger.info(f"Loading config from: {CONFIG_PATH}")
 script_config = load_config(CONFIG_PATH)
 
-# Validate config
-required_keys = ["inference_start_date"]
-check_missing_keys(required_keys, script_config)
-
-# Parse config
-INFERENCE_START_DATE = script_config["inference_start_date"]
-INFERENCE_END_DATE = script_config.get("inference_end_date", "end_of_data")
-RETRAIN_EVERY_DAYS = script_config.get("retrain_every_days", 0)
-SAVE_MODELS = script_config.get("save_models", False)
-OUTPUT_STORAGE = script_config.get("output_storage", "local")
-
-# Determine output directories
-if OUTPUT_STORAGE == "drive":
+# Resolve the storage-dependent output directories; output_storage itself is
+# validated by the context model, not here
+output_storage = script_config.get("output_storage", "local")
+save_models = script_config.get("save_models", False)
+if output_storage == "drive":
     if DRIVE_DATA_DIR is None:
         raise ValueError("DRIVE_DATA_DIR not configured. Check .env file or use 'local' storage.")
-    OUTPUT_DATA_DIR = DRIVE_DATA_DIR
-    OUTPUT_MODELS_DIR = DRIVE_MODELS_DIR if SAVE_MODELS else None
-    logger.info(f"Using Drive storage: {OUTPUT_DATA_DIR}")
-elif OUTPUT_STORAGE == "local":
-    OUTPUT_DATA_DIR = LOCAL_DATA_DIR
-    OUTPUT_MODELS_DIR = LOCAL_MODELS_DIR if SAVE_MODELS else None
-    logger.info(f"Using local storage: {OUTPUT_DATA_DIR}")
+    output_data_dir = DRIVE_DATA_DIR
+    output_models_dir = DRIVE_MODELS_DIR if save_models else None
 else:
-    raise ValueError(f"Invalid output_storage: '{OUTPUT_STORAGE}'. Use 'local' or 'drive'.")
+    output_data_dir = LOCAL_DATA_DIR
+    output_models_dir = LOCAL_MODELS_DIR if save_models else None
 
-logger.info(f"Inference start date: {INFERENCE_START_DATE}")
-logger.info(f"Inference end date: {INFERENCE_END_DATE}")
-logger.info(f"Retrain every: {RETRAIN_EVERY_DAYS} days")
-logger.info(f"Save models: {SAVE_MODELS}")
-
-# Create context
+# Create and validate context (the YAML dict feeds the model directly)
 context = ForecastProphetContext(
-    inference_start_date=INFERENCE_START_DATE,
-    inference_end_date=INFERENCE_END_DATE,
-    retrain_every_days=RETRAIN_EVERY_DAYS,
-    save_models=SAVE_MODELS,
-    output_data_dir=OUTPUT_DATA_DIR,
-    output_storage=OUTPUT_STORAGE,
-    output_models_dir=OUTPUT_MODELS_DIR,
+    **script_config, output_data_dir=output_data_dir, output_models_dir=output_models_dir
 )
+
+logger.info(f"Using {context.output_storage} storage: {context.output_data_dir}")
+logger.info(f"Inference start date: {context.inference_start_date}")
+logger.info(f"Inference end date: {context.inference_end_date}")
+logger.info(f"Retrain every: {context.retrain_every_days} days")
+logger.info(f"Save models: {context.save_models}")
 
 # Call main function
 forecast_prophet(context)

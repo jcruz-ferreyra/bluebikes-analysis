@@ -1,35 +1,55 @@
 # tasks/download_stations_data/types.py
 
-from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 
-@dataclass
-class DownloadStationsDataContext:
+class DownloadStationsDataContext(BaseModel):
     """Context for downloading Bluebikes station data via GBFS API."""
 
-    version: str
-    download_metadata: bool
-    download_status: bool
-    output_data_dir: Path
-    output_storage: str = "local"  # "local" or "drive"
+    model_config = ConfigDict(extra="forbid")
 
-    def __post_init__(self):
-        # Validate output directory
+    version: str = "1.1"
+    download_metadata: bool = False
+    download_status: bool = False
+    output_data_dir: Path
+    output_storage: Literal["local", "drive"] = "local"
+
+    @field_validator("version")
+    @classmethod
+    def _check_supported_version(cls, value: str) -> str:
+        # Only the GBFS version used by Bluebikes' official website is parseable
+        SUPPORTED_VERSION = "1.1"
+
+        if value != SUPPORTED_VERSION:
+            raise ValueError(
+                f"\nUnsupported GBFS version: '{value}'\n\n"
+                f"Currently, only version '{SUPPORTED_VERSION}' is supported for download and parsing.\n"
+                f"This is the stable version currently used by Bluebikes' official website.\n\n"
+                f"Available GBFS versions can be found at:\n"
+                f"https://gbfs.lyft.com/gbfs/1.1/bos/en/gbfs_versions.json\n\n"
+                f"To use version '{value}':\n"
+                f"1. Remove this version check in types.py (_check_supported_version)\n"
+                f"2. Update the JSON parsing logic in download_stations_data.py to handle the new format\n"
+                f"3. Test thoroughly to ensure compatibility\n"
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _check_downloads_and_prepare_dirs(self) -> "DownloadStationsDataContext":
+        # At least one download option must be enabled
+        if not self.download_metadata and not self.download_status:
+            raise ValueError(
+                "At least one download option must be enabled.\n"
+                "Set 'download_metadata: true' or 'download_status: true' in config.yaml"
+            )
+
+        # Validate output directory (same side effect as the old __post_init__)
         self.output_data_dir.mkdir(parents=True, exist_ok=True)
 
-        # Validate storage option
-        _validate_storage(self.output_storage)
-
-        # Validate version
-        _validate_version(self.version)
-
-        # Validate at least one download option is enabled
-        _validate_anything_to_download(self.download_metadata, self.download_status)
-
-        # Validate at least one download option is enabled
-        if not self.download_metadata and not self.download_status:
-            raise ValueError("At least one of download_metadata or download_status must be True")
+        return self
 
     @property
     def base_url(self) -> str:
@@ -58,63 +78,3 @@ class DownloadStationsDataContext:
         status_path = path / "status"
         status_path.mkdir(parents=True, exist_ok=True)
         return path
-
-
-def _validate_storage(storage: str) -> None:
-    """
-    Validate that the storage option is supported.
-
-    Args:
-        storage: Storage option ("local" or "drive")
-
-    Raises:
-        ValueError: If storage option is not valid
-    """
-    valid_storages = ["local", "drive"]
-    if storage not in valid_storages:
-        raise ValueError(f"output_storage must be one of {valid_storages}, " f"got '{storage}'")
-
-
-def _validate_version(version: str) -> None:
-    """
-    Validate that the GBFS version is supported.
-
-    Args:
-        version: GBFS version string (e.g., "1.1", "2.3")
-
-    Raises:
-        ValueError: If version is not supported
-    """
-    SUPPORTED_VERSION = "1.1"
-
-    if version != SUPPORTED_VERSION:
-        error_msg = (
-            f"\nUnsupported GBFS version: '{version}'\n\n"
-            f"Currently, only version '{SUPPORTED_VERSION}' is supported for download and parsing.\n"
-            f"This is the stable version currently used by Bluebikes' official website.\n\n"
-            f"Available GBFS versions can be found at:\n"
-            f"https://gbfs.lyft.com/gbfs/1.1/bos/en/gbfs_versions.json\n\n"
-            f"To use version '{version}':\n"
-            f"1. Remove this version check in types.py (_validate_version)\n"
-            f"2. Update the JSON parsing logic in download_stations_data.py to handle the new format\n"
-            f"3. Test thoroughly to ensure compatibility\n"
-        )
-        raise ValueError(error_msg)
-
-
-def _validate_anything_to_download(download_metadata: bool, download_status: bool) -> None:
-    """
-    Validate that at least one download option is enabled.
-
-    Args:
-        download_metadata: Whether to download metadata
-        download_status: Whether to download status
-
-    Raises:
-        ValueError: If both options are False
-    """
-    if not download_metadata and not download_status:
-        raise ValueError(
-            "At least one download option must be enabled.\n"
-            "Set 'download_metadata: true' or 'download_status: true' in config.yaml"
-        )
