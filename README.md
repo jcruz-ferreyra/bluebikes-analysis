@@ -8,13 +8,13 @@ Medallion-style data pipeline for forecasting morning bike-share demand at Bosto
 
 ## Overview
 
-A multi-stage pipeline that ingests Boston BlueBikes open data, cleans years of heterogeneous trip records into per-station demand time series, and forecasts daily morning pickup/dropoff demand with Prophet. It is organized as seven independent, runnable tasks (raw → interim → processed → results) plus a set of exploratory notebooks. Every task is invoked the same way: `pixi run python -m bluebikes_analysis.tasks.<task>`.
+A multi-stage pipeline that ingests Boston BlueBikes open data, cleans years of heterogeneous trip records into per-station demand time series, and forecasts daily morning pickup/dropoff demand with Prophet. It is organized as seven independent, runnable tasks (raw → interim → processed → results) plus a set of exploratory notebooks. Every task is invoked the same way: `pixi run python -m bluebikes_forecasting.tasks.<task>`.
 
 ### Capabilities
 
 - **Historical trip ingestion**: Download BlueBikes monthly trip archives (≈2018-05 → 2026-03) from the public `hubway-data` S3 bucket, resuming where left off
-- **Live station snapshots**: Poll the GBFS API for station metadata and current status, accumulating a status time series via a scheduled GitHub Action
-- **Weather enrichment**: Pull daily Boston-Logan weather from NOAA NCEI for use in the analysis notebooks
+- **Live station snapshots**: Poll the GBFS API for station metadata and current status; a scheduled GitHub Action (currently paused) accumulated a status time series in git
+- **Weather enrichment**: Pull daily Boston-Logan weather from NOAA NCEI, used in the exploratory notebooks to test its predictive power
 - **Trip cleaning & aggregation**: Standardize multi-year schemas, drop maintenance/outlier trips, and aggregate to system-daily and per-station-hourly demand
 - **Morning-demand time series**: Build gap-filled daily morning pickup/dropoff series per station — the forecasting target
 - **Prophet forecasting & backtesting**: Seasonal cross-validation and forward forecasts with 80% prediction intervals and optional rolling retraining
@@ -40,56 +40,56 @@ A multi-stage pipeline that ingests Boston BlueBikes open data, cleans years of 
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/jcruz-ferreyra/bluebikes-analysis.git
-   cd bluebikes-analysis
+   git clone https://github.com/jcruz-ferreyra/bluebikes_forecasting.git
+   cd bluebikes_forecasting
    ```
 
 2. **Install dependencies**
    ```bash
    pixi install
    ```
-   This solves and installs the conda-forge environment defined in [`pixi.toml`](pixi.toml) (Python 3.11) and installs `bluebikes_analysis` as an editable package.
+   This solves and installs the conda-forge environment defined in [`pixi.toml`](pixi.toml) (Python 3.11) and installs `bluebikes_forecasting` as an editable package.
 
 3. **Set up environment variables**
    ```bash
    cp .env.example .env
    # Edit .env with your paths and token:
    # LOCAL_DIR=/absolute/path/to/your/project/storage   # parent dir that holds data/ and models/
-   # DRIVE_DIR=G:/My Drive/bluebikes_analysis            # optional: Google Drive / external storage
+   # DRIVE_DIR=/path/to/drive/storage                   # optional: Google Drive / external storage
    # DATA_FOLDER=data
    # MODELS_FOLDER=models
    # NCEI_APIKEY=your_noaa_ncei_token                    # required only for get_weather_data
    ```
-   Paths are resolved in [`config.py`](bluebikes_analysis/config.py): `LOCAL_DATA_DIR = LOCAL_DIR / DATA_FOLDER` and `LOCAL_MODELS_DIR = LOCAL_DIR / MODELS_FOLDER` (and the `DRIVE_*` equivalents when `DRIVE_DIR` is set and mounted). Under CI (`CI=true`), these default to the repository root so the scheduled Action can run without a `.env`.
+   Paths are resolved in [`config.py`](bluebikes_forecasting/config.py): `LOCAL_DATA_DIR = LOCAL_DIR / DATA_FOLDER` and `LOCAL_MODELS_DIR = LOCAL_DIR / MODELS_FOLDER` (and the `DRIVE_*` equivalents when `DRIVE_DIR` is set and mounted). Under CI (`CI=true`), these default to the repository root so the scheduled Action can run without a `.env`.
 
 4. **Verify installation**
    ```bash
-   pixi run python -c "import bluebikes_analysis; print('Installation successful!')"
+   pixi run python -c "import bluebikes_forecasting; print('Installation successful!')"
    ```
 
 <br>
 
 ## Quick Start
 
-Run the tasks in the order below; each reads the outputs of the previous stage. `get_weather_data` is independent of the Prophet chain.
+Run the tasks in the order below; each builds on the previous stage's outputs (forecasting follows evaluation — the backtest validates the model settings the production forecasts then use). `get_weather_data` stands alone: its output is consumed by the exploratory notebooks, not by the pipeline.
 
 ```mermaid
 flowchart LR
     A[download_trips_data] --> D[aggregate_trips]
-    B[download_stations_data] --> D[aggregate_trips]
+    B[download_stations_data] --> D
     D --> E[generate_timeseries]
     E --> F[evaluate_prophet]
-    E --> G[forecast_prophet]
-    C[get_weather_data] -.-> N[notebook models]
+    F --> G[forecast_prophet]
+    C[get_weather_data]
 ```
 
-### Task 1: [download_trips_data](bluebikes_analysis/tasks/download_trips_data)
+### Task 1: [download_trips_data](bluebikes_forecasting/tasks/download_trips_data)
 
 Downloads BlueBikes historical monthly trip files from the public `hubway-data` S3 bucket.
 
 **Configuration**:
 
-Processing Configuration ([`config.yaml`](bluebikes_analysis/tasks/download_trips_data/config.yaml))
+Processing Configuration ([`config.yaml`](bluebikes_forecasting/tasks/download_trips_data/config.yaml))
 
 YAML file defining the S3 source and date range to fetch:
 
@@ -105,7 +105,7 @@ output_storage: "local"     # "local" or "drive"
 
 **Run**:
 ```bash
-pixi run python -m bluebikes_analysis.tasks.download_trips_data
+pixi run python -m bluebikes_forecasting.tasks.download_trips_data
 ```
 
 **Output** (saved to `LOCAL_DIR/data/raw/trips/` or `DRIVE_DIR/data/raw/trips/`):
@@ -115,13 +115,13 @@ pixi run python -m bluebikes_analysis.tasks.download_trips_data
 
 ---
 
-### Task 2: [download_stations_data](bluebikes_analysis/tasks/download_stations_data)
+### Task 2: [download_stations_data](bluebikes_forecasting/tasks/download_stations_data)
 
 Fetches station metadata and/or current station status from the live GBFS API (Lyft, Boston, v1.1).
 
 **Configuration**:
 
-Processing Configuration ([`config.yaml`](bluebikes_analysis/tasks/download_stations_data/config.yaml))
+Processing Configuration ([`config.yaml`](bluebikes_forecasting/tasks/download_stations_data/config.yaml))
 
 YAML file selecting GBFS version and which feeds to pull:
 
@@ -136,23 +136,23 @@ output_storage: "local"    # "local" or "drive"
 
 **Run**:
 ```bash
-pixi run python -m bluebikes_analysis.tasks.download_stations_data
+pixi run python -m bluebikes_forecasting.tasks.download_stations_data
 ```
 
 **Output** (saved under `LOCAL_DIR/data/raw/stations/`):
 - `station_information.csv` - Merged station metadata + region names (when `download_metadata: true`)
 - `status/station_status_<YYMMDD_HHMMSS>.csv` - Timestamped status snapshot (when `download_status: true`), with a computed `num_classic_available` column
-- A scheduled GitHub Action ([`snapshot_stations.yml`](.github/workflows/snapshot_stations.yml)) runs this task ~9× per day to accumulate the status time series in git
+- A scheduled GitHub Action ([`snapshot_stations.yml`](.github/workflows/snapshot_stations.yml)) ran this task ~9× per day to accumulate the status time series in git (the cron is currently paused)
 
 ---
 
-### Task 3: [get_weather_data](bluebikes_analysis/tasks/get_weather_data)
+### Task 3: [get_weather_data](bluebikes_forecasting/tasks/get_weather_data)
 
-Pulls daily weather observations from the NOAA NCEI API for the analysis notebooks. Requires `NCEI_APIKEY`.
+Pulls daily weather observations from the NOAA NCEI API. Built for exploration: the resulting dataset is used in several notebooks to test its predictive power, and has so far been left out of the main pipeline. Requires `NCEI_APIKEY`.
 
 **Configuration**:
 
-Processing Configuration ([`config.yaml`](bluebikes_analysis/tasks/get_weather_data/config.yaml))
+Processing Configuration ([`config.yaml`](bluebikes_forecasting/tasks/get_weather_data/config.yaml))
 
 YAML file defining the NCEI dataset, station, variables, and range:
 
@@ -176,7 +176,7 @@ output_storage: "local"     # "local" or "drive"
 
 **Run**:
 ```bash
-pixi run python -m bluebikes_analysis.tasks.get_weather_data
+pixi run python -m bluebikes_forecasting.tasks.get_weather_data
 # convenience alias defined in pixi.toml:
 pixi run get-weather-data
 ```
@@ -187,13 +187,13 @@ pixi run get-weather-data
 
 ---
 
-### Task 4: [aggregate_trips](bluebikes_analysis/tasks/aggregate_trips)
+### Task 4: [aggregate_trips](bluebikes_forecasting/tasks/aggregate_trips)
 
 Loads, cleans, and aggregates all raw trip CSVs into analysis datasets. Requires `station_information.csv` and a stations-of-interest file under `raw/stations/`.
 
 **Configuration**:
 
-Processing Configuration ([`config.yaml`](bluebikes_analysis/tasks/aggregate_trips/config.yaml))
+Processing Configuration ([`config.yaml`](bluebikes_forecasting/tasks/aggregate_trips/config.yaml))
 
 YAML file defining the station filter and the hourly start date:
 
@@ -207,7 +207,7 @@ output_storage: "local"           # "local" or "drive"
 
 **Run**:
 ```bash
-pixi run python -m bluebikes_analysis.tasks.aggregate_trips
+pixi run python -m bluebikes_forecasting.tasks.aggregate_trips
 ```
 
 **Output** (saved to `LOCAL_DIR/data/interim/trip_aggregates/`):
@@ -217,13 +217,13 @@ pixi run python -m bluebikes_analysis.tasks.aggregate_trips
 
 ---
 
-### Task 5: [generate_timeseries](bluebikes_analysis/tasks/generate_timeseries)
+### Task 5: [generate_timeseries](bluebikes_forecasting/tasks/generate_timeseries)
 
 Converts the aggregates into model-ready time series, including the per-station morning-demand target.
 
 **Configuration**:
 
-Processing Configuration ([`config.yaml`](bluebikes_analysis/tasks/generate_timeseries/config.yaml))
+Processing Configuration ([`config.yaml`](bluebikes_forecasting/tasks/generate_timeseries/config.yaml))
 
 YAML file defining the morning rush-hour window:
 
@@ -236,7 +236,7 @@ output_storage: "local"  # "local" or "drive"
 
 **Run**:
 ```bash
-pixi run python -m bluebikes_analysis.tasks.generate_timeseries
+pixi run python -m bluebikes_forecasting.tasks.generate_timeseries
 ```
 
 **Output** (saved to `LOCAL_DIR/data/processed/trips/`):
@@ -246,13 +246,13 @@ pixi run python -m bluebikes_analysis.tasks.generate_timeseries
 
 ---
 
-### Task 6: [evaluate_prophet](bluebikes_analysis/tasks/evaluate_prophet)
+### Task 6: [evaluate_prophet](bluebikes_forecasting/tasks/evaluate_prophet)
 
 Backtests Prophet per station across seasonal cross-validation splits.
 
 **Configuration**:
 
-Processing Configuration ([`config.yaml`](bluebikes_analysis/tasks/evaluate_prophet/config.yaml))
+Processing Configuration ([`config.yaml`](bluebikes_forecasting/tasks/evaluate_prophet/config.yaml))
 
 YAML file defining the test windows and retraining cadence:
 
@@ -272,7 +272,7 @@ output_storage: "local"    # "local" or "drive"
 
 **Run**:
 ```bash
-pixi run python -m bluebikes_analysis.tasks.evaluate_prophet
+pixi run python -m bluebikes_forecasting.tasks.evaluate_prophet
 ```
 
 **Output** (saved to `LOCAL_DIR/data/timeseries_results/evaluation/prophet/`):
@@ -283,13 +283,13 @@ pixi run python -m bluebikes_analysis.tasks.evaluate_prophet
 
 ---
 
-### Task 7: [forecast_prophet](bluebikes_analysis/tasks/forecast_prophet)
+### Task 7: [forecast_prophet](bluebikes_forecasting/tasks/forecast_prophet)
 
-Trains Prophet and generates forward forecasts (with 80% bounds) for every station.
+Trains Prophet — with the settings validated by `evaluate_prophet` — and generates forward forecasts (with 80% bounds) for every station.
 
 **Configuration**:
 
-Processing Configuration ([`config.yaml`](bluebikes_analysis/tasks/forecast_prophet/config.yaml))
+Processing Configuration ([`config.yaml`](bluebikes_forecasting/tasks/forecast_prophet/config.yaml))
 
 YAML file defining the inference window, retraining, and model persistence:
 
@@ -306,7 +306,7 @@ output_storage: "local"             # "local" or "drive"
 
 **Run**:
 ```bash
-pixi run python -m bluebikes_analysis.tasks.forecast_prophet
+pixi run python -m bluebikes_forecasting.tasks.forecast_prophet
 ```
 
 **Output** (saved to `LOCAL_DIR/data/timeseries_results/forecasts/prophet/`):
@@ -318,10 +318,11 @@ pixi run python -m bluebikes_analysis.tasks.forecast_prophet
 
 ## Bonus: [Analysis Notebooks](notebooks/)
 
-Jupyter notebooks for exploration, diagnostics, and model experimentation. The notebook toolchain (JupyterLab, ipykernel) and the modelling libraries live in the **`dev`** environment — launch JupyterLab there:
+Jupyter notebooks for exploration, diagnostics, and model experimentation. The notebook toolchain (JupyterLab, ipykernel) and the modelling libraries live in the **`dev`** environment; the `lab` and `kernel` tasks are defined there, so a bare `pixi run` picks it automatically:
 
 ```bash
-pixi run -e dev lab     # provisions the dev environment on first run
+pixi run lab       # launch JupyterLab (provisions the dev environment on first run)
+pixi run kernel    # one-time: register the "Pixi (bluebikes_forecasting)" kernel for VS Code / Jupyter
 ```
 
 **Flow** (`notebooks/`):
@@ -333,7 +334,7 @@ pixi run -e dev lab     # provisions the dev environment on first run
 - `05_classical_model_training` / `05_prophet_model_training` / `05_xgboost_model_training` / `05_bayesian_model_training` - Model-training experiments
 - `06_challenge_variance` - Investigation of demand variance
 
-**Bayesian modelling libraries.** The `dev` environment bundles the libraries used by `05_bayesian_model_training` — [PyMC](https://www.pymc.io/), [nutpie](https://github.com/pymc-devs/nutpie) (a fast NUTS sampler), and [ArviZ](https://python.arviz.org/) (posterior diagnostics). They are installed from conda-forge so PyTensor and nutpie get working compiled backends without manual compiler setup; no extra steps are needed beyond running notebooks under `-e dev`.
+**Bayesian modelling libraries.** The `dev` environment bundles the libraries used by `05_bayesian_model_training` — [PyMC](https://www.pymc.io/), [nutpie](https://github.com/pymc-devs/nutpie) (a fast NUTS sampler), and [ArviZ](https://python.arviz.org/) (posterior diagnostics). They are installed from conda-forge so PyTensor and nutpie get working compiled backends without manual compiler setup; no extra steps are needed beyond launching `pixi run lab` or selecting the registered kernel.
 
 <br>
 
@@ -343,7 +344,7 @@ pixi run -e dev lab     # provisions the dev environment on first run
 
 ```
 bluebikes_forecasting/
-├── bluebikes_analysis/              # source package
+├── bluebikes_forecasting/              # source package
 │   ├── config.py                    # resolves data/model paths + NCEI key from .env (CI-aware)
 │   ├── plots/
 │   │   └── plots.py                 # shared plotting helpers (COLORS, plot_daily_longterm, …)
@@ -363,7 +364,7 @@ bluebikes_forecasting/
 ├── models/                          # serialized models (e.g. prophet/*.pkl)
 ├── reports/figures/                 # generated figures
 ├── .github/workflows/
-│   └── snapshot_stations.yml        # cron Action: runs download_stations_data
+│   └── snapshot_stations.yml        # cron Action: runs download_stations_data (paused)
 ├── pixi.toml                        # conda-forge environment, features & tasks
 ├── pixi.lock
 └── pyproject.toml                   # packaging metadata (flit)
@@ -461,7 +462,7 @@ models/                                              # = LOCAL_DIR/MODELS_FOLDER
 
 ## How It Works
 
-### Task 1: [download_trips_data](bluebikes_analysis/tasks/download_trips_data)
+### Task 1: [download_trips_data](bluebikes_forecasting/tasks/download_trips_data)
 
 Downloads BlueBikes public historical trip files from the `hubway-data` S3 bucket with resume capability and dual URL-pattern handling.
 
@@ -495,9 +496,9 @@ Downloads BlueBikes public historical trip files from the `hubway-data` S3 bucke
 
 ---
 
-### Task 2: [download_stations_data](bluebikes_analysis/tasks/download_stations_data)
+### Task 2: [download_stations_data](bluebikes_forecasting/tasks/download_stations_data)
 
-Calls the live GBFS API (Lyft / Boston, v1.1) for station metadata and current status, feeding the scheduled snapshot Action.
+Calls the live GBFS API (Lyft / Boston, v1.1) for station metadata and current status; also the task behind the snapshot Action.
 
 <details>
 <summary><b>Details</b></summary>
@@ -517,7 +518,7 @@ Calls the live GBFS API (Lyft / Boston, v1.1) for station metadata and current s
 **Key Features**:
 - **GBFS v1.1 endpoints**: Derived from `version` for the Boston (`bos`) feed
 - **Selective download**: Metadata pulled occasionally, status pulled regularly
-- **Scheduled accumulation**: The cron Action runs the status mode ~9× per day, committing each snapshot to build a status time series in git
+- **Scheduled accumulation**: The cron Action ran the status mode ~9× per day, committing each snapshot to build a status time series in git (currently paused)
 
 **Technical Details**:
 - Endpoints: `https://gbfs.lyft.com/gbfs/1.1/bos/en/{station_information,system_regions,station_status}.json`
@@ -528,7 +529,7 @@ Calls the live GBFS API (Lyft / Boston, v1.1) for station metadata and current s
 
 ---
 
-### Task 3: [get_weather_data](bluebikes_analysis/tasks/get_weather_data)
+### Task 3: [get_weather_data](bluebikes_forecasting/tasks/get_weather_data)
 
 Pulls daily Boston weather from NOAA NCEI and reshapes it into a wide daily table for the notebooks.
 
@@ -549,19 +550,19 @@ Pulls daily Boston weather from NOAA NCEI and reshapes it into a wide daily tabl
 **Key Features**:
 - **NCEI GHCND, Boston Logan** (`USW00014739`)
 - **Six datatypes**: TMAX, TMIN, PRCP, SNOW, SNWD, AWND
-- **Standalone task**: Not part of the Prophet chain (see note)
+- **Standalone task**: Not part of the main pipeline (see note)
 
 **Technical Details**:
 - Auth via the `NCEI_APIKEY` token header; `units="standard"`
 - Raises if no records are returned (bad station, dataset, or token)
 
-> **Note (current design)**: The Prophet tasks model seasonality using only built-in US holidays — they do **not** use weather regressors. `get_weather_data` therefore exists to feed the analysis notebooks (e.g. the XGBoost / Bayesian experiments) rather than the task pipeline. This is the current state, not a limitation.
+> **Note (current design)**: This task was built for exploration — the weather dataset it produces is used in several notebooks (e.g. the XGBoost / Bayesian experiments) to test its predictive power for demand. The Prophet tasks model seasonality using only built-in US holidays, with no weather regressors, so up to now `get_weather_data` has been left out of the main pipeline. This is the current state, not a limitation.
 
 </details>
 
 ---
 
-### Task 4: [aggregate_trips](bluebikes_analysis/tasks/aggregate_trips)
+### Task 4: [aggregate_trips](bluebikes_forecasting/tasks/aggregate_trips)
 
 The cleaning core: standardizes years of trip data, removes bad records, and produces system-daily and per-station-hourly aggregates.
 
@@ -596,7 +597,7 @@ The cleaning core: standardizes years of trip data, removes bad records, and pro
 
 ---
 
-### Task 5: [generate_timeseries](bluebikes_analysis/tasks/generate_timeseries)
+### Task 5: [generate_timeseries](bluebikes_forecasting/tasks/generate_timeseries)
 
 Turns the aggregates into clean, gap-filled series, including the per-station morning-demand target.
 
@@ -628,7 +629,7 @@ Turns the aggregates into clean, gap-filled series, including the per-station mo
 
 ---
 
-### Task 6: [evaluate_prophet](bluebikes_analysis/tasks/evaluate_prophet)
+### Task 6: [evaluate_prophet](bluebikes_forecasting/tasks/evaluate_prophet)
 
 Backtests Prophet on each station's morning demand across seasonal cross-validation splits.
 
@@ -660,7 +661,7 @@ Backtests Prophet on each station's morning demand across seasonal cross-validat
 
 ---
 
-### Task 7: [forecast_prophet](bluebikes_analysis/tasks/forecast_prophet)
+### Task 7: [forecast_prophet](bluebikes_forecasting/tasks/forecast_prophet)
 
 Production forecasting: trains Prophet and projects pickups/dropoffs forward with 80% prediction intervals.
 
@@ -714,7 +715,7 @@ Production forecasting: trains Prophet and projects pickups/dropoffs forward wit
 ### Support
 
 For questions or issues:
-- **GitHub Issues**: [bluebikes-analysis/issues](https://github.com/jcruz-ferreyra/bluebikes-analysis/issues)
+- **GitHub Issues**: [bluebikes_forecasting/issues](https://github.com/jcruz-ferreyra/bluebikes_forecasting/issues)
 
 ### Citation
 
@@ -722,10 +723,10 @@ If you use this pipeline in your research, please cite:
 ```bibtex
 @software{bluebikes_forecasting_2026,
   title       = {BlueBikes Forecasting: Demand Forecasting for Boston Bike-Share Stations},
-  author      = {{Author Name}},
+  author      = {Ferreyra, Juan Cruz},
   institution = {Northeastern University},
   year        = {2026},
-  url         = {https://github.com/<user>/<repo>}
+  url         = {https://github.com/jcruz-ferreyra/bluebikes_forecasting}
 }
 ```
 
