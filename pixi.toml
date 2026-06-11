@@ -43,8 +43,10 @@ arviz = ">=0.23.4,<0.24"
 dev = ["dev"]
 
 [tasks]
+get-weather-data = "python -m bluebikes_analysis.tasks.get_weather_data"
+
+[feature.dev.tasks]
 lab = "jupyter lab"
-kernel = "python -m ipykernel install --user --name bluebikes_analysis --display-name bluebikes_analysis"
+kernel = 'python -m ipykernel install --user --name bluebikes-dev --display-name "Pixi (bluebikes_forecasting)"'
 format = "black . && isort ."
 lint = "flake8 ."
-get-weather-data = "python -m bluebikes_analysis.tasks.get_weather_data"
