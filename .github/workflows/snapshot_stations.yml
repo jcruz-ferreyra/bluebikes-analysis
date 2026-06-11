@@ -45,7 +45,7 @@ jobs:
       env:
         CI: true
       run: |
-        python -m bluebikes_analysis.tasks.download_stations_data
+        python -m bluebikes_forecasting.tasks.download_stations_data
     
     - name: Commit and push results
       run: |

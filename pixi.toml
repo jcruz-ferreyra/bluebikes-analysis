@@ -27,7 +27,7 @@ xgboost = "*"
 holidays = "*"
 
 [pypi-dependencies]
-bluebikes_analysis = { path = ".", editable = true }
+bluebikes_forecasting = { path = ".", editable = true }
 
 [feature.dev.dependencies]
 ipykernel = "*"
@@ -43,7 +43,7 @@ arviz = ">=0.23.4,<0.24"
 dev = ["dev"]
 
 [tasks]
-get-weather-data = "python -m bluebikes_analysis.tasks.get_weather_data"
+get-weather-data = "python -m bluebikes_forecasting.tasks.get_weather_data"
 
 [feature.dev.tasks]
 lab = "jupyter lab"

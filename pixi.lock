@@ -1230,9 +1230,9 @@ packages:
   size: 49840
   timestamp: 1733513605730
 - pypi: ./
-  name: bluebikes-analysis
+  name: bluebikes-forecasting
   version: 0.0.1
-  sha256: 1a99d6415e43574b30210f8205231c5db6f03070cba4aea78b96f8a80b6a5813
+  sha256: 70865738fc01d9fd0927ce583a023c94bd7827ef0d648aa42d0954e3630dea1f
   requires_python: ~=3.11.0
 - conda: https://conda.anaconda.org/conda-forge/noarch/branca-0.8.2-pyhd8ed1ab_0.conda
   sha256: 1acf87c77d920edd098ddc91fa785efc10de871465dee0f463815b176e019e8b

@@ -2,7 +2,7 @@
 # GLOBALS                                                                       #
 #################################################################################
 
-PROJECT_NAME = bluebikes_analysis
+PROJECT_NAME = bluebikes_forecasting
 PYTHON_VERSION = 3.11
 PYTHON_INTERPRETER = python
 
@@ -29,15 +29,15 @@ clean:
 ## Lint using flake8, black, and isort (use `make format` to do formatting)
 .PHONY: lint
 lint:
-	flake8 bluebikes_analysis
-	isort --check --diff bluebikes_analysis
-	black --check bluebikes_analysis
+	flake8 bluebikes_forecasting
+	isort --check --diff bluebikes_forecasting
+	black --check bluebikes_forecasting
 
 ## Format source code with black
 .PHONY: format
 format:
-	isort bluebikes_analysis
-	black bluebikes_analysis
+	isort bluebikes_forecasting
+	black bluebikes_forecasting
 
 
 
