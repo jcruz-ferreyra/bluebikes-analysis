@@ -1,27 +1,34 @@
 # tasks/generate_timeseries/types.py
 
-from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
-@dataclass
-class GenerateTimeseriesContext:
+class GenerateTimeseriesContext(BaseModel):
     """Context for generating time series from aggregated trip data."""
 
-    morning_start_hour: int  # inclusive
-    morning_end_hour: int  # exclusive (e.g. 11 means up to 10:59)
-    output_data_dir: Path
-    output_storage: str = "local"  # "local" or "drive"
+    model_config = ConfigDict(extra="forbid")
 
-    def __post_init__(self):
-        # Validate output directory
+    morning_start_hour: int = Field(ge=0, le=23)  # inclusive
+    morning_end_hour: int = Field(ge=1, le=24)  # exclusive (e.g. 11 means up to 10:59)
+    output_data_dir: Path
+    output_storage: Literal["local", "drive"] = "local"
+
+    @model_validator(mode="after")
+    def _check_window_and_prepare_dirs(self) -> "GenerateTimeseriesContext":
+        # Morning window must be non-empty (start inclusive, end exclusive)
+        if self.morning_start_hour >= self.morning_end_hour:
+            raise ValueError(
+                f"morning_start_hour ({self.morning_start_hour}) must be less than "
+                f"morning_end_hour ({self.morning_end_hour})"
+            )
+
+        # Validate output directory (same side effect as the old __post_init__)
         self.output_data_dir.mkdir(parents=True, exist_ok=True)
 
-        # Validate storage option
-        _validate_storage(self.output_storage)
-
-        # Validate morning hours
-        _validate_morning_hours(self.morning_start_hour, self.morning_end_hour)
+        return self
 
     @property
     def interim_dir(self) -> Path:
@@ -58,42 +65,3 @@ class GenerateTimeseriesContext:
         path = self.timeseries_dir / "station"
         path.mkdir(parents=True, exist_ok=True)
         return path
-
-
-def _validate_storage(storage: str) -> None:
-    """
-    Validate that the storage option is supported.
-
-    Args:
-        storage: Storage option ("local" or "drive")
-
-    Raises:
-        ValueError: If storage option is not valid
-    """
-    valid_storages = ["local", "drive"]
-    if storage not in valid_storages:
-        raise ValueError(f"output_storage must be one of {valid_storages}, got '{storage}'")
-
-
-def _validate_morning_hours(start_hour: int, end_hour: int) -> None:
-    """
-    Validate morning hour range is valid.
-
-    Args:
-        start_hour: Start hour, inclusive (0-23)
-        end_hour: End hour, exclusive (1-24, e.g. 11 means up to 10:59)
-
-    Raises:
-        ValueError: If hours are invalid
-    """
-    if not (0 <= start_hour <= 23):
-        raise ValueError(f"morning_start_hour must be 0-23, got {start_hour}")
-
-    if not (1 <= end_hour <= 24):
-        raise ValueError(f"morning_end_hour must be 1-24 (exclusive end), got {end_hour}")
-
-    if start_hour >= end_hour:
-        raise ValueError(
-            f"morning_start_hour ({start_hour}) must be less than "
-            f"morning_end_hour ({end_hour})"
-        )
